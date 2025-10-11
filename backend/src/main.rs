@@ -1,3 +1,5 @@
+mod domain;
+
 fn main() {
-    println!("Hello from Rust backend!");
+    println!("Logjam Backend - Domain Layer Initialized");
 }
