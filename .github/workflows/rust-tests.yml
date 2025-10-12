@@ -29,5 +29,8 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-cargo-
           
+    - name: Install cargo-nextest
+      run: cargo install cargo-nextest
+      
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo nextest run
