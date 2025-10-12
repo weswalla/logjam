@@ -86,9 +86,13 @@ impl Page {
             .get(id)
             .ok_or_else(|| DomainError::NotFound(format!("Block {} not found", id)))?;
 
+        // Clone the data we need before mutable operations
+        let parent_id = block.parent_id().cloned();
+        let child_ids: Vec<BlockId> = block.child_ids().to_vec();
+
         // Remove from parent's children list
-        if let Some(parent_id) = block.parent_id() {
-            if let Some(parent) = self.blocks.get_mut(parent_id) {
+        if let Some(parent_id) = parent_id {
+            if let Some(parent) = self.blocks.get_mut(&parent_id) {
                 parent.remove_child(id);
             }
         } else {
@@ -97,7 +101,6 @@ impl Page {
         }
 
         // Remove all children recursively
-        let child_ids: Vec<BlockId> = block.child_ids().to_vec();
         for child_id in child_ids {
             self.remove_block(&child_id)?;
         }
