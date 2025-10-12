@@ -3,16 +3,4 @@ name = "backend"
 version = "0.1.0"
 edition = "2021"
 
-[[bin]]
-name = "backend"
-path = "backend/src/main.rs"
-
-[lib]
-name = "backend"
-path = "backend/src/lib.rs"
-
-[[test]]
-name = "integration_test"
-path = "backend/tests/integration_test.rs"
-
 [dependencies]
