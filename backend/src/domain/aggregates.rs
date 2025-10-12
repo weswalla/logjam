@@ -1,7 +1,6 @@
 /// Domain aggregates
-use super::base::{AggregateRoot, DomainError, DomainResult, Entity};
+use super::base::{AggregateRoot, DomainError, DomainEvent, DomainResult, Entity};
 use super::entities::Block;
-use super::events::DomainEvent;
 use super::value_objects::{BlockId, PageId, PageReference, Url};
 use std::collections::HashMap;
 
@@ -195,9 +194,7 @@ impl Page {
 
     /// Get all page references with their ancestor and descendant URLs
     /// Returns tuples of (page_ref, ancestor_urls, descendant_urls)
-    pub fn get_page_references_with_context(
-        &self,
-    ) -> Vec<(&PageReference, Vec<&Url>, Vec<&Url>)> {
+    pub fn get_page_references_with_context(&self) -> Vec<(&PageReference, Vec<&Url>, Vec<&Url>)> {
         let mut results = Vec::new();
 
         for block in self.blocks.values() {
