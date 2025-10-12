@@ -17,7 +17,7 @@ pub trait Entity: Debug {
 /// Aggregates ensure consistency boundaries and encapsulate business rules
 pub trait AggregateRoot: Entity {
     /// Apply domain events and update the aggregate state
-    fn apply_event(&mut self, event: &dyn DomainEvent);
+    fn apply_event(&mut self, event: &crate::domain::events::DomainEventEnum);
 }
 
 /// Trait for domain events - things that have happened in the domain

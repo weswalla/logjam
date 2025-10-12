@@ -1,6 +1,7 @@
 /// Domain aggregates
 use super::base::{AggregateRoot, DomainError, DomainEvent, DomainResult, Entity};
 use super::entities::Block;
+use super::events::DomainEventEnum;
 use super::value_objects::{BlockId, PageId, PageReference, Url};
 use std::collections::HashMap;
 
@@ -38,27 +39,33 @@ impl Page {
     /// Add a block to the page
     pub fn add_block(&mut self, block: Block) -> DomainResult<()> {
         let block_id = block.id().clone();
+        let parent_id = block.parent_id().cloned();
 
         // If block has a parent, verify the parent exists
-        if let Some(parent_id) = block.parent_id() {
-            if !self.blocks.contains_key(parent_id) {
+        if let Some(ref pid) = parent_id {
+            if !self.blocks.contains_key(pid) {
                 return Err(DomainError::InvalidOperation(format!(
                     "Parent block {} does not exist",
-                    parent_id
+                    pid
                 )));
             }
-            // Add this block as a child to its parent
-            if let Some(parent) = self.blocks.get_mut(parent_id) {
+        }
+
+        // Insert the block first
+        self.blocks.insert(block_id.clone(), block);
+
+        // Then update parent-child relationships
+        if let Some(pid) = parent_id {
+            if let Some(parent) = self.blocks.get_mut(&pid) {
                 parent.add_child(block_id.clone());
             }
         } else {
             // Root-level block
             if !self.root_block_ids.contains(&block_id) {
-                self.root_block_ids.push(block_id.clone());
+                self.root_block_ids.push(block_id);
             }
         }
 
-        self.blocks.insert(block_id, block);
         Ok(())
     }
 
@@ -241,7 +248,7 @@ impl Entity for Page {
 }
 
 impl AggregateRoot for Page {
-    fn apply_event(&mut self, _event: &dyn DomainEvent) {
+    fn apply_event(&mut self, _event: &DomainEventEnum) {
         // Event handling will be implemented when we add domain events
         // For now, this is a placeholder
     }

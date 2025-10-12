@@ -104,6 +104,41 @@ impl DomainEvent for BlockRemoved {
     }
 }
 
+/// Enum wrapper for all domain events to make them object-safe
+#[derive(Debug, Clone)]
+pub enum DomainEventEnum {
+    PageCreated(PageCreated),
+    PageUpdated(PageUpdated),
+    PageDeleted(PageDeleted),
+    BlockAdded(BlockAdded),
+    BlockUpdated(BlockUpdated),
+    BlockRemoved(BlockRemoved),
+}
+
+impl DomainEvent for DomainEventEnum {
+    fn event_type(&self) -> &'static str {
+        match self {
+            DomainEventEnum::PageCreated(e) => e.event_type(),
+            DomainEventEnum::PageUpdated(e) => e.event_type(),
+            DomainEventEnum::PageDeleted(e) => e.event_type(),
+            DomainEventEnum::BlockAdded(e) => e.event_type(),
+            DomainEventEnum::BlockUpdated(e) => e.event_type(),
+            DomainEventEnum::BlockRemoved(e) => e.event_type(),
+        }
+    }
+
+    fn aggregate_id(&self) -> String {
+        match self {
+            DomainEventEnum::PageCreated(e) => e.aggregate_id(),
+            DomainEventEnum::PageUpdated(e) => e.aggregate_id(),
+            DomainEventEnum::PageDeleted(e) => e.aggregate_id(),
+            DomainEventEnum::BlockAdded(e) => e.aggregate_id(),
+            DomainEventEnum::BlockUpdated(e) => e.aggregate_id(),
+            DomainEventEnum::BlockRemoved(e) => e.aggregate_id(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
