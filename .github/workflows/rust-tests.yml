@@ -18,19 +18,20 @@ jobs:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
       
-    - name: Cache cargo registry
+    - name: Cache cargo registry and binaries
       uses: actions/cache@v3
       with:
         path: |
           ~/.cargo/registry
           ~/.cargo/git
+          ~/.cargo/bin
           target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-nextest
         restore-keys: |
           ${{ runner.os }}-cargo-
           
     - name: Install cargo-nextest
-      run: cargo install cargo-nextest
+      run: cargo install cargo-nextest --locked
       
     - name: Run tests
       run: cargo nextest run
