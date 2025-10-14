@@ -15,4 +15,8 @@ path = "backend/src/main.rs"
 name = "integration_test"
 path = "backend/tests/integration_test.rs"
 
+[[test]]
+name = "application_integration_test"
+path = "backend/tests/application_integration_test.rs"
+
 [dependencies]
