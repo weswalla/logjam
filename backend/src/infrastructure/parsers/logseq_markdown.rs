@@ -328,19 +328,22 @@ mod tests {
 
         let page = LogseqMarkdownParser::parse_content(content, page_id, "Test Page".to_string()).unwrap();
 
-        let all_blocks: Vec<_> = page.all_blocks().collect();
-        assert_eq!(all_blocks.len(), 3);
+        // Use root_blocks() which preserves insertion order
+        let root_blocks = page.root_blocks();
+        assert_eq!(root_blocks.len(), 3);
 
         // First block should have a URL
-        let block1 = all_blocks[0];
-        assert_eq!(block1.urls().len(), 1);
+        assert_eq!(root_blocks[0].urls().len(), 1);
+        assert_eq!(root_blocks[0].urls()[0].as_str(), "https://example.com");
 
         // Second block should have a page reference
-        let block2 = all_blocks[1];
-        assert_eq!(block2.page_references().len(), 1);
+        assert_eq!(root_blocks[1].page_references().len(), 1);
+        assert_eq!(root_blocks[1].page_references()[0].title(), "related page");
+        assert!(!root_blocks[1].page_references()[0].is_tag());
 
         // Third block should have a tag
-        let block3 = all_blocks[2];
-        assert_eq!(block3.page_references().len(), 1);
+        assert_eq!(root_blocks[2].page_references().len(), 1);
+        assert_eq!(root_blocks[2].page_references()[0].title(), "tag");
+        assert!(root_blocks[2].page_references()[0].is_tag());
     }
 }
