@@ -121,45 +121,45 @@ mod tests {
         repo
     }
 
-    #[test]
-    fn test_search_by_keyword() {
+    #[tokio::test]
+    async fn test_search_by_keyword() {
         let repo = create_sample_knowledge_base();
         let search_use_case = SearchPagesAndBlocks::new(&repo);
 
         let request = SearchRequest::new("Rust");
-        let results = search_use_case.execute(request).unwrap();
+        let results = search_use_case.execute(request).await.unwrap();
 
         // Should find matches in multiple pages
         assert!(results.len() >= 2, "Expected at least 2 results");
     }
 
-    #[test]
-    fn test_search_pages_only() {
+    #[tokio::test]
+    async fn test_search_pages_only() {
         let repo = create_sample_knowledge_base();
         let search_use_case = SearchPagesAndBlocks::new(&repo);
 
         let request = SearchRequest::new("programming").with_result_type(ResultType::PagesOnly);
-        let results = search_use_case.execute(request).unwrap();
+        let results = search_use_case.execute(request).await.unwrap();
 
         // Should find the Programming page
         assert_eq!(results.len(), 1);
     }
 
-    #[test]
-    fn test_search_urls_only() {
+    #[tokio::test]
+    async fn test_search_urls_only() {
         let repo = create_sample_knowledge_base();
         let search_use_case = SearchPagesAndBlocks::new(&repo);
 
         let request = SearchRequest::new("rust-lang.org").with_result_type(ResultType::UrlsOnly);
-        let results = search_use_case.execute(request).unwrap();
+        let results = search_use_case.execute(request).await.unwrap();
 
         // Should find the rust-lang.org URLs (appears 2 times: once in programming, once in learning)
         // There's also the doc.rust-lang.org URL which also matches
         assert!(results.len() >= 2, "Expected at least 2 URL results");
     }
 
-    #[test]
-    fn test_search_with_page_filter() {
+    #[tokio::test]
+    async fn test_search_with_page_filter() {
         let repo = create_sample_knowledge_base();
         let search_use_case = SearchPagesAndBlocks::new(&repo);
 
@@ -167,14 +167,14 @@ mod tests {
         let request = SearchRequest::new("Rust")
             .with_result_type(ResultType::BlocksOnly)
             .with_page_filters(vec![page_id]);
-        let results = search_use_case.execute(request).unwrap();
+        let results = search_use_case.execute(request).await.unwrap();
 
         // Should only find results in the Programming page
         assert_eq!(results.len(), 1);
     }
 
-    #[test]
-    fn test_get_pages_for_url() {
+    #[tokio::test]
+    async fn test_get_pages_for_url() {
         let repo = create_sample_knowledge_base();
         let use_case = GetPagesForUrl::new(&repo);
 
@@ -191,8 +191,8 @@ mod tests {
             .any(|c| c.page_title == "Learning Resources"));
     }
 
-    #[test]
-    fn test_get_links_for_page() {
+    #[tokio::test]
+    async fn test_get_links_for_page() {
         let repo = create_sample_knowledge_base();
         let use_case = GetLinksForPage::new(&repo);
 
@@ -212,8 +212,8 @@ mod tests {
         assert!(!nested_url.related_page_refs.is_empty()); // Should have page ref from parent
     }
 
-    #[test]
-    fn test_indexing_workflow() {
+    #[tokio::test]
+    async fn test_indexing_workflow() {
         let mut repo = InMemoryPageRepository::new();
 
         // Create a new page
@@ -234,19 +234,19 @@ mod tests {
         // Verify it's searchable
         let search_use_case = SearchPagesAndBlocks::new(&repo);
         let request = SearchRequest::new("important");
-        let results = search_use_case.execute(request).unwrap();
+        let results = search_use_case.execute(request).await.unwrap();
 
         assert_eq!(results.len(), 1);
     }
 
-    #[test]
-    fn test_hierarchical_context_in_search_results() {
+    #[tokio::test]
+    async fn test_hierarchical_context_in_search_results() {
         let repo = create_sample_knowledge_base();
         let search_use_case = SearchPagesAndBlocks::new(&repo);
 
         let request =
             SearchRequest::new("Ownership and borrowing").with_result_type(ResultType::BlocksOnly);
-        let results = search_use_case.execute(request).unwrap();
+        let results = search_use_case.execute(request).await.unwrap();
 
         assert_eq!(results.len(), 1);
 
@@ -263,14 +263,14 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_cross_page_references() {
+    #[tokio::test]
+    async fn test_cross_page_references() {
         let repo = create_sample_knowledge_base();
 
         // Search for "Building" which appears in Web Development page
         let search_use_case = SearchPagesAndBlocks::new(&repo);
         let request = SearchRequest::new("Building").with_result_type(ResultType::BlocksOnly);
-        let results = search_use_case.execute(request).unwrap();
+        let results = search_use_case.execute(request).await.unwrap();
 
         // Should find the Web Development page with "Building web applications"
         let web_dev_block = results.iter().find(|r| {
@@ -289,7 +289,7 @@ mod tests {
         // Verify that pages can be searched across the knowledge base
         let programming_search =
             SearchRequest::new("Rust").with_result_type(ResultType::BlocksOnly);
-        let prog_results = search_use_case.execute(programming_search).unwrap();
+        let prog_results = search_use_case.execute(programming_search).await.unwrap();
 
         // Should find blocks from multiple pages (Programming and Web Development pages)
         assert!(
@@ -298,8 +298,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_url_context_includes_related_pages() {
+    #[tokio::test]
+    async fn test_url_context_includes_related_pages() {
         let repo = create_sample_knowledge_base();
         let use_case = GetLinksForPage::new(&repo);
 

@@ -4,8 +4,10 @@ use crate::application::{
         SearchType, UrlResult,
     },
     repositories::PageRepository,
+    services::EmbeddingService,
 };
 use crate::domain::{aggregates::Page, base::Entity, value_objects::PageId, DomainResult};
+use std::sync::Arc;
 
 /// Use case for searching pages and blocks
 ///
@@ -13,15 +15,30 @@ use crate::domain::{aggregates::Page, base::Entity, value_objects::PageId, Domai
 /// applying filters and returning structured results with hierarchical context.
 pub struct SearchPagesAndBlocks<'a, R: PageRepository> {
     repository: &'a R,
+    embedding_service: Option<Arc<EmbeddingService>>,
 }
 
 impl<'a, R: PageRepository> SearchPagesAndBlocks<'a, R> {
     pub fn new(repository: &'a R) -> Self {
-        Self { repository }
+        Self {
+            repository,
+            embedding_service: None,
+        }
+    }
+
+    /// Create with semantic search support
+    pub fn with_embedding_service(
+        repository: &'a R,
+        embedding_service: Arc<EmbeddingService>,
+    ) -> Self {
+        Self {
+            repository,
+            embedding_service: Some(embedding_service),
+        }
     }
 
     /// Execute a search query and return matching results
-    pub fn execute(&self, request: SearchRequest) -> DomainResult<Vec<SearchResult>> {
+    pub async fn execute(&self, request: SearchRequest) -> DomainResult<Vec<SearchResult>> {
         // Get all pages (or filtered pages if specified)
         let pages = if let Some(ref page_filters) = request.page_filters {
             self.get_filtered_pages(page_filters)?
@@ -33,11 +50,70 @@ impl<'a, R: PageRepository> SearchPagesAndBlocks<'a, R> {
         let results = match request.search_type {
             SearchType::Traditional => self.traditional_search(&pages, &request),
             SearchType::Semantic => {
-                // For now, semantic search falls back to traditional
-                // This will be implemented with vector embeddings in the infrastructure layer
-                self.traditional_search(&pages, &request)
+                if let Some(ref embedding_service) = self.embedding_service {
+                    self.semantic_search(&pages, &request, embedding_service)
+                        .await?
+                } else {
+                    // Fall back to traditional search if no embedding service
+                    self.traditional_search(&pages, &request)
+                }
             }
         };
+
+        Ok(results)
+    }
+
+    /// Perform semantic search using vector embeddings
+    async fn semantic_search(
+        &self,
+        _pages: &[Page],
+        request: &SearchRequest,
+        embedding_service: &EmbeddingService,
+    ) -> DomainResult<Vec<SearchResult>> {
+        use crate::domain::base::DomainError;
+
+        // Perform vector search
+        let vector_results = embedding_service
+            .search(&request.query, 50)
+            .await
+            .map_err(|e| DomainError::InvalidOperation(format!("Semantic search failed: {}", e)))?;
+
+        let mut results = Vec::new();
+
+        // Convert vector search results to SearchResults
+        for vr in vector_results {
+            // Only include blocks for now (semantic search is primarily for content)
+            if matches!(
+                request.result_type,
+                ResultType::BlocksOnly | ResultType::All
+            ) {
+                // Parse IDs from the vector result
+                let page_id = crate::domain::value_objects::PageId::new(&vr.page_id)
+                    .map_err(|e| DomainError::InvalidValue(format!("Invalid page ID: {}", e)))?;
+                let block_id = crate::domain::value_objects::BlockId::new(&vr.block_id)
+                    .map_err(|e| DomainError::InvalidValue(format!("Invalid block ID: {}", e)))?;
+
+                // Fetch the actual page for related data
+                let related_pages = Vec::new();
+                let related_urls = Vec::new();
+
+                // Note: For performance, we're not fetching the full page here
+                // In production, consider caching or batching these lookups
+
+                results.push(SearchResult {
+                    item: SearchItem::Block(BlockResult {
+                        block_id,
+                        content: vr.original_content,
+                        page_id,
+                        page_title: vr.page_title,
+                        hierarchy_path: vr.hierarchy_path,
+                        related_pages,
+                        related_urls,
+                    }),
+                    score: vr.score as f64,
+                });
+            }
+        }
 
         Ok(results)
     }
@@ -272,29 +348,29 @@ mod tests {
         page
     }
 
-    #[test]
-    fn test_search_pages_by_title() {
+    #[tokio::test]
+    async fn test_search_pages_by_title() {
         let mut repo = InMemoryPageRepository::new();
         let page = create_test_page();
         repo.save(page).unwrap();
 
         let use_case = SearchPagesAndBlocks::new(&repo);
         let request = SearchRequest::new("Test Page").with_result_type(ResultType::PagesOnly);
-        let results = use_case.execute(request).unwrap();
+        let results = use_case.execute(request).await.unwrap();
 
         assert_eq!(results.len(), 1);
         assert!(matches!(results[0].item, SearchItem::Page(_)));
     }
 
-    #[test]
-    fn test_search_blocks_by_content() {
+    #[tokio::test]
+    async fn test_search_blocks_by_content() {
         let mut repo = InMemoryPageRepository::new();
         let page = create_test_page();
         repo.save(page).unwrap();
 
         let use_case = SearchPagesAndBlocks::new(&repo);
         let request = SearchRequest::new("test content").with_result_type(ResultType::BlocksOnly);
-        let results = use_case.execute(request).unwrap();
+        let results = use_case.execute(request).await.unwrap();
 
         assert_eq!(results.len(), 1);
         if let SearchItem::Block(block_result) = &results[0].item {
@@ -304,8 +380,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_search_with_page_filter() {
+    #[tokio::test]
+    async fn test_search_with_page_filter() {
         let mut repo = InMemoryPageRepository::new();
         let page1 = create_test_page();
         let page1_id = page1.id().clone();
@@ -321,7 +397,7 @@ mod tests {
             .with_result_type(ResultType::PagesOnly)
             .with_page_filters(vec![page1_id]);
 
-        let results = use_case.execute(request).unwrap();
+        let results = use_case.execute(request).await.unwrap();
 
         assert_eq!(results.len(), 1);
         if let SearchItem::Page(page_result) = &results[0].item {
@@ -329,22 +405,22 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_search_all_types() {
+    #[tokio::test]
+    async fn test_search_all_types() {
         let mut repo = InMemoryPageRepository::new();
         let page = create_test_page();
         repo.save(page).unwrap();
 
         let use_case = SearchPagesAndBlocks::new(&repo);
         let request = SearchRequest::new("test").with_result_type(ResultType::All);
-        let results = use_case.execute(request).unwrap();
+        let results = use_case.execute(request).await.unwrap();
 
         // Should find page and block matches
         assert!(results.len() >= 2);
     }
 
-    #[test]
-    fn test_search_urls() {
+    #[tokio::test]
+    async fn test_search_urls() {
         let mut repo = InMemoryPageRepository::new();
         let page_id = PageId::new("url-page").unwrap();
         let mut page = Page::new(page_id, "URL Page".to_string());
@@ -360,7 +436,7 @@ mod tests {
 
         let use_case = SearchPagesAndBlocks::new(&repo);
         let request = SearchRequest::new("example.com").with_result_type(ResultType::UrlsOnly);
-        let results = use_case.execute(request).unwrap();
+        let results = use_case.execute(request).await.unwrap();
 
         assert_eq!(results.len(), 1);
         assert!(matches!(results[0].item, SearchItem::Url(_)));

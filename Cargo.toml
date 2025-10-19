@@ -19,6 +19,10 @@ path = "backend/tests/integration_test.rs"
 name = "application_integration_test"
 path = "backend/tests/application_integration_test.rs"
 
+[[test]]
+name = "semantic_search_integration_test"
+path = "backend/tests/semantic_search_integration_test.rs"
+
 [dependencies]
 # File system watching
 notify = "6.1"
@@ -41,6 +45,18 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # UUID generation
 uuid = { version = "1.11", features = ["v4", "serde"] }
+
+# Semantic search - embeddings
+fastembed = "5.2"
+
+# Semantic search - vector database
+qdrant-client = "1.11"
+
+# Text processing
+regex = "1.10"
+
+# Date/time handling
+chrono = { version = "0.4", features = ["serde"] }
 
 [dev-dependencies]
 tempfile = "3.14"
