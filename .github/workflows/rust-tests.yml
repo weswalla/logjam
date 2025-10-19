@@ -31,7 +31,7 @@ jobs:
           ${{ runner.os }}-cargo-
           
     - name: Install cargo-nextest
-      run: cargo install cargo-nextest --locked
+      run: cargo nextest --version || cargo install cargo-nextest --locked
       
     - name: Run tests
       run: cargo nextest run
