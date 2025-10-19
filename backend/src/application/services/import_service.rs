@@ -1,6 +1,5 @@
 /// Import service for importing Logseq directories
 use crate::application::repositories::PageRepository;
-use crate::domain::events::{FileProcessed, ImportCompleted, ImportFailed, ImportStarted};
 use crate::domain::value_objects::{ImportProgress, LogseqDirectoryPath};
 use crate::infrastructure::file_system::discover_logseq_files;
 use crate::infrastructure::parsers::LogseqMarkdownParser;
@@ -68,7 +67,6 @@ impl<R: PageRepository> ImportService<R> {
         progress_callback: Option<ProgressCallback>,
     ) -> ImportResult<ImportSummary> {
         let start_time = Instant::now();
-        let path_buf = directory_path.as_path().to_path_buf();
 
         // Discover all markdown files
         let files = discover_logseq_files(directory_path.as_path()).await?;

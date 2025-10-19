@@ -1,5 +1,5 @@
 /// Domain aggregates
-use super::base::{AggregateRoot, DomainError, DomainEvent, DomainResult, Entity};
+use super::base::{AggregateRoot, DomainError, DomainResult, Entity};
 use super::entities::Block;
 use super::events::DomainEventEnum;
 use super::value_objects::{BlockId, PageId, PageReference, Url};

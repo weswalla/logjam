@@ -142,6 +142,10 @@ impl LogseqFileWatcher {
                 // since it represents a file that changed in some way
                 FileEventKind::Modified
             }
+            _ => {
+                // Handle any future variants of DebouncedEventKind
+                FileEventKind::Modified
+            }
         };
 
         let event = FileEvent { path, kind: event_kind };
