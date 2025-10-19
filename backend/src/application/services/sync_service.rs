@@ -189,7 +189,7 @@ impl<R: PageRepository + Send + 'static> SyncService<R> {
                 // For now, we just emit the event
 
                 if let Some(cb) = callback {
-                    cb(SyncEvent::FileDeleted { file_path: path });
+                    cb(SyncEvent::FileDeleted { file_path: path.clone() });
                 }
 
                 Ok(FileEventKind::Deleted)
