@@ -51,3 +51,38 @@
   - set up block embedding (pre-processing with good abstractions) with vector storage and search
   - set up URL metadata parsing, indexing, persistence
   - set up tauri app + minimal frontend with some kind of API between them
+
+## Implementation Summary & Alignment (2025.10.18)
+
+### Technology Stack Confirmed
+- **notify** for file system event monitoring
+- **SQLite** (via tauri-plugin-sql) for persistence
+- **tantivy** for text search (when implementing search)
+- Semantic search (fastembed-rs + qdrant) deferred to later
+
+### Current Focus Scope
+1. File event handling with notify crate
+2. ImportLogseqDirectory UseCase
+3. LogseqDirectorySync UseCase  
+4. Basic SQLite persistence
+5. Good test coverage
+
+### Architecture Approach
+- Simplified DDD (not over-engineered for personal project)
+- Clear separation of domain/application/infrastructure layers
+- Direct callbacks from file watcher to sync service (no complex event bus)
+- Async processing with bounded concurrency
+- Simple debouncing for file changes
+
+### Implementation Path
+1. **Domain Layer:** Use existing Page/Block entities, add any needed value objects
+2. **Application Layer:** ImportLogseqDirectory and LogseqDirectorySync use cases
+3. **Infrastructure Layer:** File watching (notify), persistence (SQLite), file I/O
+4. **Testing:** Unit tests for domain logic, integration tests with real files
+
+### Key Decisions
+- Feature markdown files provide good simplified foundation
+- Direct callback approach from file watcher to sync service
+- SQLite perfect for personal project persistence needs
+- Tantivy for traditional text search initially
+- Semantic search capabilities added later as separate feature
