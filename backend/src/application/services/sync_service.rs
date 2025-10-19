@@ -151,31 +151,31 @@ impl<R: PageRepository + Send + 'static> SyncService<R> {
         operation: SyncOperation,
         callback: Option<&SyncCallback>,
     ) -> SyncResult<FileEventKind> {
-        match operation {
+        match &operation {
             SyncOperation::Create(path) | SyncOperation::Update(path) => {
                 // Parse the file
-                let page = LogseqMarkdownParser::parse_file(&path).await?;
+                let page = LogseqMarkdownParser::parse_file(path).await?;
 
                 // Save to repository
                 let mut repo = self.repository.lock().await;
                 repo.save(page)?;
 
-                // Emit event
+                // Emit event and determine result based on operation type
+                let is_create = matches!(operation, SyncOperation::Create(_));
+
                 if let Some(cb) = callback {
-                    if matches!(operation, SyncOperation::Create(_)) {
-                        cb(SyncEvent::FileCreated { file_path: path });
-                        Ok(FileEventKind::Created)
+                    if is_create {
+                        cb(SyncEvent::FileCreated { file_path: path.clone() });
                     } else {
-                        cb(SyncEvent::FileUpdated { file_path: path });
-                        Ok(FileEventKind::Modified)
-                    }
-                } else {
-                    if matches!(operation, SyncOperation::Create(_)) {
-                        Ok(FileEventKind::Created)
-                    } else {
-                        Ok(FileEventKind::Modified)
+                        cb(SyncEvent::FileUpdated { file_path: path.clone() });
                     }
                 }
+
+                Ok(if is_create {
+                    FileEventKind::Created
+                } else {
+                    FileEventKind::Modified
+                })
             }
 
             SyncOperation::Delete(path) => {

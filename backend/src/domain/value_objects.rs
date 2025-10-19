@@ -437,10 +437,6 @@ mod tests {
 
     #[test]
     fn test_logseq_directory_path() {
-        // We can only test with paths that actually exist
-        // In real tests, we'd create temporary directories
-        let temp_dir = std::env::temp_dir();
-
         // Test that a non-directory path fails validation
         let invalid_path = LogseqDirectoryPath::new("/non/existent/path");
         assert!(invalid_path.is_err());

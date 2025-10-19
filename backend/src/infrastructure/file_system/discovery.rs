@@ -4,30 +4,32 @@ use tokio::fs;
 
 /// Discover all .md files in a directory recursively
 pub async fn discover_markdown_files(dir: &Path) -> Result<Vec<PathBuf>, std::io::Error> {
-    let mut files = Vec::new();
-    let mut entries = fs::read_dir(dir).await?;
+    Box::pin(async move {
+        let mut files = Vec::new();
+        let mut entries = fs::read_dir(dir).await?;
 
-    while let Some(entry) = entries.next_entry().await? {
-        let path = entry.path();
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
 
-        if path.is_file() {
-            if let Some(extension) = path.extension() {
-                if extension == "md" {
-                    files.push(path);
+            if path.is_file() {
+                if let Some(extension) = path.extension() {
+                    if extension == "md" {
+                        files.push(path);
+                    }
                 }
-            }
-        } else if path.is_dir() {
-            // Skip hidden directories and logseq internal directories
-            if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
-                if !dir_name.starts_with('.') && dir_name != "logseq" {
-                    let mut sub_files = discover_markdown_files(&path).await?;
-                    files.append(&mut sub_files);
+            } else if path.is_dir() {
+                // Skip hidden directories and logseq internal directories
+                if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
+                    if !dir_name.starts_with('.') && dir_name != "logseq" {
+                        let mut sub_files = discover_markdown_files(&path).await?;
+                        files.append(&mut sub_files);
+                    }
                 }
             }
         }
-    }
 
-    Ok(files)
+        Ok(files)
+    }).await
 }
 
 /// Discover markdown files in both pages/ and journals/ subdirectories

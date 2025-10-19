@@ -186,8 +186,8 @@ impl ImportSummary {
 mod tests {
     use super::*;
     use crate::domain::aggregates::Page;
+    use crate::domain::base::{DomainResult, Entity};
     use crate::domain::value_objects::PageId;
-    use crate::domain::base::{DomainResult, DomainError};
     use std::collections::HashMap;
 
     // Mock repository for testing

@@ -1,6 +1,6 @@
 /// File system watcher using the notify crate
-use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
+use notify::{RecommendedWatcher, RecursiveMode};
+use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer, DebouncedEventKind};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
 use std::time::Duration;
@@ -135,12 +135,13 @@ impl LogseqFileWatcher {
     }
 
     /// Convert a notify event to our simplified FileEvent
-    fn convert_event(path: PathBuf, kind: notify::EventKind) -> Option<FileEvent> {
+    fn convert_event(path: PathBuf, kind: DebouncedEventKind) -> Option<FileEvent> {
         let event_kind = match kind {
-            EventKind::Create(_) => FileEventKind::Created,
-            EventKind::Modify(_) => FileEventKind::Modified,
-            EventKind::Remove(_) => FileEventKind::Deleted,
-            _ => return None, // Ignore other event types
+            DebouncedEventKind::Any => {
+                // For debounced events, we treat "Any" as a modification
+                // since it represents a file that changed in some way
+                FileEventKind::Modified
+            }
         };
 
         let event = FileEvent { path, kind: event_kind };

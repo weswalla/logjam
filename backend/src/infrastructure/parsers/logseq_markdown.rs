@@ -137,7 +137,6 @@ impl LogseqMarkdownParser {
                 Block::new_root(
                     block_id.clone(),
                     BlockContent::new(content),
-                    IndentLevel::root(),
                 )
             } else {
                 // Find parent block at previous indent level
@@ -154,8 +153,8 @@ impl LogseqMarkdownParser {
                 Block::new_child(
                     block_id.clone(),
                     BlockContent::new(content),
-                    IndentLevel::new(indent_level),
                     parent_id,
+                    IndentLevel::new(indent_level),
                 )
             };
 
@@ -209,13 +208,11 @@ impl LogseqMarkdownParser {
         let mut chars = content.chars().peekable();
         let mut current_ref = String::new();
         let mut in_brackets = false;
-        let mut bracket_count = 0;
 
         while let Some(ch) = chars.next() {
             if ch == '[' && chars.peek() == Some(&'[') {
                 chars.next(); // consume second [
                 in_brackets = true;
-                bracket_count = 2;
                 current_ref.clear();
             } else if in_brackets && ch == ']' && chars.peek() == Some(&']') {
                 chars.next(); // consume second ]
@@ -311,19 +308,19 @@ mod tests {
 
         let page = LogseqMarkdownParser::parse_content(content, page_id, "Test Page".to_string()).unwrap();
 
-        let all_blocks = page.all_blocks();
+        let all_blocks: Vec<_> = page.all_blocks().collect();
         assert_eq!(all_blocks.len(), 3);
 
         // First block should have a URL
-        let block1 = all_blocks.iter().next().unwrap();
+        let block1 = all_blocks[0];
         assert_eq!(block1.urls().len(), 1);
 
         // Second block should have a page reference
-        let block2 = all_blocks.iter().nth(1).unwrap();
+        let block2 = all_blocks[1];
         assert_eq!(block2.page_references().len(), 1);
 
         // Third block should have a tag
-        let block3 = all_blocks.iter().nth(2).unwrap();
+        let block3 = all_blocks[2];
         assert_eq!(block3.page_references().len(), 1);
     }
 }
