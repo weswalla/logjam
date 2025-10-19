@@ -203,40 +203,60 @@ impl LogseqMarkdownParser {
     /// Extract page references from content ([[page]] and #tag)
     fn extract_page_references(content: &str) -> Vec<PageReference> {
         let mut references = Vec::new();
+        let mut position = 0;
+        let chars: Vec<char> = content.chars().collect();
 
-        // Extract [[page references]]
-        let mut chars = content.chars().peekable();
-        let mut current_ref = String::new();
-        let mut in_brackets = false;
+        while position < chars.len() {
+            // Check for [[page reference]]
+            if position + 1 < chars.len()
+                && chars[position] == '['
+                && chars[position + 1] == '[' {
+                position += 2; // skip [[
+                let mut ref_text = String::new();
 
-        while let Some(ch) = chars.next() {
-            if ch == '[' && chars.peek() == Some(&'[') {
-                chars.next(); // consume second [
-                in_brackets = true;
-                current_ref.clear();
-            } else if in_brackets && ch == ']' && chars.peek() == Some(&']') {
-                chars.next(); // consume second ]
-                if !current_ref.is_empty() {
-                    if let Ok(page_ref) = PageReference::from_brackets(&current_ref) {
-                        references.push(page_ref);
+                // Find closing ]]
+                while position + 1 < chars.len() {
+                    if chars[position] == ']' && chars[position + 1] == ']' {
+                        position += 2; // skip ]]
+                        if !ref_text.is_empty() {
+                            if let Ok(page_ref) = PageReference::from_brackets(&ref_text) {
+                                references.push(page_ref);
+                            }
+                        }
+                        break;
+                    } else {
+                        ref_text.push(chars[position]);
+                        position += 1;
                     }
                 }
-                in_brackets = false;
-                current_ref.clear();
-            } else if in_brackets {
-                current_ref.push(ch);
             }
-        }
+            // Check for #tag
+            else if chars[position] == '#' {
+                // Make sure it's at word boundary (start of string or after whitespace)
+                let at_word_boundary = position == 0 || chars[position - 1].is_whitespace();
 
-        // Extract #tags
-        for word in content.split_whitespace() {
-            if word.starts_with('#') && word.len() > 1 {
-                let tag = word[1..].trim_end_matches(|c: char| c.is_ascii_punctuation());
-                if !tag.is_empty() {
-                    if let Ok(tag_ref) = PageReference::from_tag(tag) {
-                        references.push(tag_ref);
+                if at_word_boundary && position + 1 < chars.len() {
+                    position += 1; // skip #
+                    let mut tag = String::new();
+
+                    // Collect tag characters (until whitespace or punctuation)
+                    while position < chars.len()
+                        && !chars[position].is_whitespace()
+                        && !chars[position].is_ascii_punctuation() {
+                        tag.push(chars[position]);
+                        position += 1;
                     }
+
+                    if !tag.is_empty() {
+                        if let Ok(tag_ref) = PageReference::from_tag(&tag) {
+                            references.push(tag_ref);
+                        }
+                    }
+                } else {
+                    position += 1;
                 }
+            } else {
+                position += 1;
             }
         }
 
