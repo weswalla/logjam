@@ -1,5 +1,5 @@
 /// Domain entities
-use super::base::{Entity, ValueObject};
+use super::base::Entity;
 use super::value_objects::{BlockContent, BlockId, IndentLevel, PageReference, Url};
 
 /// A Block represents a single bullet point in Logseq
