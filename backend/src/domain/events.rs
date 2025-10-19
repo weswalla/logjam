@@ -1,6 +1,7 @@
 /// Domain events
 use super::base::DomainEvent;
 use super::value_objects::{BlockId, PageId};
+use std::path::PathBuf;
 
 /// Event emitted when a new page is created
 #[derive(Debug, Clone)]
@@ -104,6 +105,168 @@ impl DomainEvent for BlockRemoved {
     }
 }
 
+/// Event emitted when an import operation starts
+#[derive(Debug, Clone)]
+pub struct ImportStarted {
+    pub directory_path: PathBuf,
+    pub total_files: usize,
+}
+
+impl DomainEvent for ImportStarted {
+    fn event_type(&self) -> &'static str {
+        "ImportStarted"
+    }
+
+    fn aggregate_id(&self) -> String {
+        self.directory_path.to_string_lossy().to_string()
+    }
+}
+
+/// Event emitted when a file is processed during import
+#[derive(Debug, Clone)]
+pub struct FileProcessed {
+    pub directory_path: PathBuf,
+    pub file_path: PathBuf,
+    pub page_id: PageId,
+    pub files_processed: usize,
+    pub total_files: usize,
+}
+
+impl DomainEvent for FileProcessed {
+    fn event_type(&self) -> &'static str {
+        "FileProcessed"
+    }
+
+    fn aggregate_id(&self) -> String {
+        self.directory_path.to_string_lossy().to_string()
+    }
+}
+
+/// Event emitted when import completes successfully
+#[derive(Debug, Clone)]
+pub struct ImportCompleted {
+    pub directory_path: PathBuf,
+    pub pages_imported: usize,
+    pub duration_ms: u64,
+}
+
+impl DomainEvent for ImportCompleted {
+    fn event_type(&self) -> &'static str {
+        "ImportCompleted"
+    }
+
+    fn aggregate_id(&self) -> String {
+        self.directory_path.to_string_lossy().to_string()
+    }
+}
+
+/// Event emitted when import fails
+#[derive(Debug, Clone)]
+pub struct ImportFailed {
+    pub directory_path: PathBuf,
+    pub error: String,
+    pub files_processed: usize,
+}
+
+impl DomainEvent for ImportFailed {
+    fn event_type(&self) -> &'static str {
+        "ImportFailed"
+    }
+
+    fn aggregate_id(&self) -> String {
+        self.directory_path.to_string_lossy().to_string()
+    }
+}
+
+/// Event emitted when file sync starts
+#[derive(Debug, Clone)]
+pub struct SyncStarted {
+    pub directory_path: PathBuf,
+}
+
+impl DomainEvent for SyncStarted {
+    fn event_type(&self) -> &'static str {
+        "SyncStarted"
+    }
+
+    fn aggregate_id(&self) -> String {
+        self.directory_path.to_string_lossy().to_string()
+    }
+}
+
+/// Event emitted when a file is created and synced
+#[derive(Debug, Clone)]
+pub struct FileCreatedEvent {
+    pub directory_path: PathBuf,
+    pub file_path: PathBuf,
+    pub page_id: PageId,
+}
+
+impl DomainEvent for FileCreatedEvent {
+    fn event_type(&self) -> &'static str {
+        "FileCreated"
+    }
+
+    fn aggregate_id(&self) -> String {
+        self.directory_path.to_string_lossy().to_string()
+    }
+}
+
+/// Event emitted when a file is updated and synced
+#[derive(Debug, Clone)]
+pub struct FileUpdatedEvent {
+    pub directory_path: PathBuf,
+    pub file_path: PathBuf,
+    pub page_id: PageId,
+}
+
+impl DomainEvent for FileUpdatedEvent {
+    fn event_type(&self) -> &'static str {
+        "FileUpdated"
+    }
+
+    fn aggregate_id(&self) -> String {
+        self.directory_path.to_string_lossy().to_string()
+    }
+}
+
+/// Event emitted when a file is deleted and synced
+#[derive(Debug, Clone)]
+pub struct FileDeletedEvent {
+    pub directory_path: PathBuf,
+    pub file_path: PathBuf,
+    pub page_id: PageId,
+}
+
+impl DomainEvent for FileDeletedEvent {
+    fn event_type(&self) -> &'static str {
+        "FileDeleted"
+    }
+
+    fn aggregate_id(&self) -> String {
+        self.directory_path.to_string_lossy().to_string()
+    }
+}
+
+/// Event emitted when sync completes
+#[derive(Debug, Clone)]
+pub struct SyncCompleted {
+    pub directory_path: PathBuf,
+    pub files_created: usize,
+    pub files_updated: usize,
+    pub files_deleted: usize,
+}
+
+impl DomainEvent for SyncCompleted {
+    fn event_type(&self) -> &'static str {
+        "SyncCompleted"
+    }
+
+    fn aggregate_id(&self) -> String {
+        self.directory_path.to_string_lossy().to_string()
+    }
+}
+
 /// Enum wrapper for all domain events to make them object-safe
 #[derive(Debug, Clone)]
 pub enum DomainEventEnum {
@@ -113,6 +276,15 @@ pub enum DomainEventEnum {
     BlockAdded(BlockAdded),
     BlockUpdated(BlockUpdated),
     BlockRemoved(BlockRemoved),
+    ImportStarted(ImportStarted),
+    FileProcessed(FileProcessed),
+    ImportCompleted(ImportCompleted),
+    ImportFailed(ImportFailed),
+    SyncStarted(SyncStarted),
+    FileCreated(FileCreatedEvent),
+    FileUpdated(FileUpdatedEvent),
+    FileDeleted(FileDeletedEvent),
+    SyncCompleted(SyncCompleted),
 }
 
 impl DomainEvent for DomainEventEnum {
@@ -124,6 +296,15 @@ impl DomainEvent for DomainEventEnum {
             DomainEventEnum::BlockAdded(e) => e.event_type(),
             DomainEventEnum::BlockUpdated(e) => e.event_type(),
             DomainEventEnum::BlockRemoved(e) => e.event_type(),
+            DomainEventEnum::ImportStarted(e) => e.event_type(),
+            DomainEventEnum::FileProcessed(e) => e.event_type(),
+            DomainEventEnum::ImportCompleted(e) => e.event_type(),
+            DomainEventEnum::ImportFailed(e) => e.event_type(),
+            DomainEventEnum::SyncStarted(e) => e.event_type(),
+            DomainEventEnum::FileCreated(e) => e.event_type(),
+            DomainEventEnum::FileUpdated(e) => e.event_type(),
+            DomainEventEnum::FileDeleted(e) => e.event_type(),
+            DomainEventEnum::SyncCompleted(e) => e.event_type(),
         }
     }
 
@@ -135,6 +316,15 @@ impl DomainEvent for DomainEventEnum {
             DomainEventEnum::BlockAdded(e) => e.aggregate_id(),
             DomainEventEnum::BlockUpdated(e) => e.aggregate_id(),
             DomainEventEnum::BlockRemoved(e) => e.aggregate_id(),
+            DomainEventEnum::ImportStarted(e) => e.aggregate_id(),
+            DomainEventEnum::FileProcessed(e) => e.aggregate_id(),
+            DomainEventEnum::ImportCompleted(e) => e.aggregate_id(),
+            DomainEventEnum::ImportFailed(e) => e.aggregate_id(),
+            DomainEventEnum::SyncStarted(e) => e.aggregate_id(),
+            DomainEventEnum::FileCreated(e) => e.aggregate_id(),
+            DomainEventEnum::FileUpdated(e) => e.aggregate_id(),
+            DomainEventEnum::FileDeleted(e) => e.aggregate_id(),
+            DomainEventEnum::SyncCompleted(e) => e.aggregate_id(),
         }
     }
 }
@@ -216,5 +406,82 @@ mod tests {
 
         assert_eq!(event.event_type(), "BlockRemoved");
         assert_eq!(event.aggregate_id(), "page-1");
+    }
+
+    #[test]
+    fn test_import_started_event() {
+        let event = ImportStarted {
+            directory_path: PathBuf::from("/test/directory"),
+            total_files: 10,
+        };
+
+        assert_eq!(event.event_type(), "ImportStarted");
+        assert_eq!(event.aggregate_id(), "/test/directory");
+    }
+
+    #[test]
+    fn test_file_processed_event() {
+        let page_id = PageId::new("page-1").unwrap();
+        let event = FileProcessed {
+            directory_path: PathBuf::from("/test/directory"),
+            file_path: PathBuf::from("/test/directory/pages/test.md"),
+            page_id,
+            files_processed: 5,
+            total_files: 10,
+        };
+
+        assert_eq!(event.event_type(), "FileProcessed");
+        assert_eq!(event.aggregate_id(), "/test/directory");
+    }
+
+    #[test]
+    fn test_import_completed_event() {
+        let event = ImportCompleted {
+            directory_path: PathBuf::from("/test/directory"),
+            pages_imported: 10,
+            duration_ms: 5000,
+        };
+
+        assert_eq!(event.event_type(), "ImportCompleted");
+        assert_eq!(event.aggregate_id(), "/test/directory");
+    }
+
+    #[test]
+    fn test_sync_events() {
+        let page_id = PageId::new("page-1").unwrap();
+
+        let sync_started = SyncStarted {
+            directory_path: PathBuf::from("/test/directory"),
+        };
+        assert_eq!(sync_started.event_type(), "SyncStarted");
+
+        let file_created = FileCreatedEvent {
+            directory_path: PathBuf::from("/test/directory"),
+            file_path: PathBuf::from("/test/directory/pages/new.md"),
+            page_id: page_id.clone(),
+        };
+        assert_eq!(file_created.event_type(), "FileCreated");
+
+        let file_updated = FileUpdatedEvent {
+            directory_path: PathBuf::from("/test/directory"),
+            file_path: PathBuf::from("/test/directory/pages/updated.md"),
+            page_id: page_id.clone(),
+        };
+        assert_eq!(file_updated.event_type(), "FileUpdated");
+
+        let file_deleted = FileDeletedEvent {
+            directory_path: PathBuf::from("/test/directory"),
+            file_path: PathBuf::from("/test/directory/pages/deleted.md"),
+            page_id,
+        };
+        assert_eq!(file_deleted.event_type(), "FileDeleted");
+
+        let sync_completed = SyncCompleted {
+            directory_path: PathBuf::from("/test/directory"),
+            files_created: 1,
+            files_updated: 2,
+            files_deleted: 1,
+        };
+        assert_eq!(sync_completed.event_type(), "SyncCompleted");
     }
 }

@@ -1,6 +1,7 @@
 /// Value objects for the domain layer
 use super::base::{DomainError, DomainResult, ValueObject};
 use std::fmt;
+use std::path::{Path, PathBuf};
 
 /// Unique identifier for a Page
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -228,6 +229,120 @@ impl fmt::Display for IndentLevel {
     }
 }
 
+/// A validated Logseq directory path that contains pages/ and journals/ subdirectories
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LogseqDirectoryPath {
+    path: PathBuf,
+}
+
+impl LogseqDirectoryPath {
+    pub fn new(path: impl Into<PathBuf>) -> DomainResult<Self> {
+        let path = path.into();
+
+        // Validate that the path exists and is a directory
+        if !path.exists() {
+            return Err(DomainError::InvalidValue(format!(
+                "Directory does not exist: {}",
+                path.display()
+            )));
+        }
+
+        if !path.is_dir() {
+            return Err(DomainError::InvalidValue(format!(
+                "Path is not a directory: {}",
+                path.display()
+            )));
+        }
+
+        // Validate that pages/ and journals/ subdirectories exist
+        let pages_dir = path.join("pages");
+        let journals_dir = path.join("journals");
+
+        if !pages_dir.exists() || !pages_dir.is_dir() {
+            return Err(DomainError::InvalidValue(format!(
+                "Directory does not contain a 'pages' subdirectory: {}",
+                path.display()
+            )));
+        }
+
+        if !journals_dir.exists() || !journals_dir.is_dir() {
+            return Err(DomainError::InvalidValue(format!(
+                "Directory does not contain a 'journals' subdirectory: {}",
+                path.display()
+            )));
+        }
+
+        Ok(LogseqDirectoryPath { path })
+    }
+
+    pub fn as_path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn pages_dir(&self) -> PathBuf {
+        self.path.join("pages")
+    }
+
+    pub fn journals_dir(&self) -> PathBuf {
+        self.path.join("journals")
+    }
+}
+
+impl ValueObject for LogseqDirectoryPath {}
+
+impl fmt::Display for LogseqDirectoryPath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.path.display())
+    }
+}
+
+/// Tracks the progress of an import operation
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportProgress {
+    files_processed: usize,
+    total_files: usize,
+    current_file: Option<PathBuf>,
+}
+
+impl ImportProgress {
+    pub fn new(total_files: usize) -> Self {
+        ImportProgress {
+            files_processed: 0,
+            total_files,
+            current_file: None,
+        }
+    }
+
+    pub fn increment(&mut self) {
+        self.files_processed += 1;
+    }
+
+    pub fn set_current_file(&mut self, file: Option<PathBuf>) {
+        self.current_file = file;
+    }
+
+    pub fn files_processed(&self) -> usize {
+        self.files_processed
+    }
+
+    pub fn total_files(&self) -> usize {
+        self.total_files
+    }
+
+    pub fn current_file(&self) -> Option<&PathBuf> {
+        self.current_file.as_ref()
+    }
+
+    pub fn percentage(&self) -> f64 {
+        if self.total_files == 0 {
+            return 100.0;
+        }
+        (self.files_processed as f64 / self.total_files as f64) * 100.0
+    }
+}
+
+impl ValueObject for ImportProgress {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -318,5 +433,38 @@ mod tests {
 
         let none = back_to_0.decrement();
         assert!(none.is_none());
+    }
+
+    #[test]
+    fn test_logseq_directory_path() {
+        // We can only test with paths that actually exist
+        // In real tests, we'd create temporary directories
+        let temp_dir = std::env::temp_dir();
+
+        // Test that a non-directory path fails validation
+        let invalid_path = LogseqDirectoryPath::new("/non/existent/path");
+        assert!(invalid_path.is_err());
+    }
+
+    #[test]
+    fn test_import_progress() {
+        let mut progress = ImportProgress::new(10);
+        assert_eq!(progress.files_processed(), 0);
+        assert_eq!(progress.total_files(), 10);
+        assert_eq!(progress.percentage(), 0.0);
+        assert!(progress.current_file().is_none());
+
+        progress.increment();
+        assert_eq!(progress.files_processed(), 1);
+        assert_eq!(progress.percentage(), 10.0);
+
+        progress.set_current_file(Some(PathBuf::from("/test/file.md")));
+        assert_eq!(progress.current_file().unwrap().to_str().unwrap(), "/test/file.md");
+
+        for _ in 0..9 {
+            progress.increment();
+        }
+        assert_eq!(progress.files_processed(), 10);
+        assert_eq!(progress.percentage(), 100.0);
     }
 }
