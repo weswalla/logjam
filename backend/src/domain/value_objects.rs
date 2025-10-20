@@ -343,6 +343,172 @@ impl ImportProgress {
 
 impl ValueObject for ImportProgress {}
 
+/// Unique identifier for a text chunk (may be 1:1 or 1:many with BlockId)
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ChunkId(String);
+
+impl ChunkId {
+    pub fn new(id: impl Into<String>) -> DomainResult<Self> {
+        let id = id.into();
+        if id.is_empty() {
+            return Err(DomainError::InvalidValue("ChunkId cannot be empty".to_string()));
+        }
+        Ok(ChunkId(id))
+    }
+
+    /// Create a ChunkId from a BlockId and chunk index
+    pub fn from_block(block_id: &BlockId, chunk_index: usize) -> Self {
+        ChunkId(format!("{}-chunk-{}", block_id.as_str(), chunk_index))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl ValueObject for ChunkId {}
+
+impl fmt::Display for ChunkId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// Vector embedding for semantic search (384 dimensions for all-MiniLM-L6-v2)
+#[derive(Debug, Clone, PartialEq)]
+pub struct EmbeddingVector {
+    dimensions: Vec<f32>,
+}
+
+impl EmbeddingVector {
+    /// Create a new embedding vector with validation
+    pub fn new(dimensions: Vec<f32>) -> DomainResult<Self> {
+        // Validate that we have the expected number of dimensions (384 for all-MiniLM-L6-v2)
+        if dimensions.is_empty() {
+            return Err(DomainError::InvalidValue(
+                "Embedding vector cannot be empty".to_string(),
+            ));
+        }
+
+        // Note: We don't enforce a specific dimension count here to allow flexibility
+        // for different models in the future
+
+        Ok(EmbeddingVector { dimensions })
+    }
+
+    pub fn dimensions(&self) -> &[f32] {
+        &self.dimensions
+    }
+
+    pub fn dimension_count(&self) -> usize {
+        self.dimensions.len()
+    }
+
+    /// Calculate cosine similarity with another embedding vector
+    pub fn cosine_similarity(&self, other: &EmbeddingVector) -> DomainResult<f32> {
+        if self.dimension_count() != other.dimension_count() {
+            return Err(DomainError::InvalidOperation(
+                "Cannot calculate similarity between vectors of different dimensions".to_string(),
+            ));
+        }
+
+        let dot_product: f32 = self
+            .dimensions
+            .iter()
+            .zip(other.dimensions.iter())
+            .map(|(a, b)| a * b)
+            .sum();
+
+        let magnitude_a: f32 = self.dimensions.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let magnitude_b: f32 = other.dimensions.iter().map(|x| x * x).sum::<f32>().sqrt();
+
+        if magnitude_a == 0.0 || magnitude_b == 0.0 {
+            return Ok(0.0);
+        }
+
+        Ok(dot_product / (magnitude_a * magnitude_b))
+    }
+}
+
+impl ValueObject for EmbeddingVector {}
+
+// Manual Eq implementation since f32 doesn't implement Eq
+impl Eq for EmbeddingVector {}
+
+/// Normalized similarity score (0.0-1.0) for search results
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct SimilarityScore(f32);
+
+impl SimilarityScore {
+    pub fn new(score: f32) -> DomainResult<Self> {
+        if !(0.0..=1.0).contains(&score) {
+            return Err(DomainError::InvalidValue(format!(
+                "Similarity score must be between 0.0 and 1.0, got {}",
+                score
+            )));
+        }
+        Ok(SimilarityScore(score))
+    }
+
+    pub fn value(&self) -> f32 {
+        self.0
+    }
+
+    /// Create a score from a cosine similarity value (which can be -1.0 to 1.0)
+    /// Maps it to 0.0-1.0 range
+    pub fn from_cosine_similarity(cosine: f32) -> DomainResult<Self> {
+        // Cosine similarity ranges from -1 to 1, normalize to 0-1
+        let normalized = (cosine + 1.0) / 2.0;
+        Self::new(normalized.clamp(0.0, 1.0))
+    }
+}
+
+// Note: SimilarityScore doesn't implement ValueObject because f32 doesn't implement Eq
+// It's a scoring value, not a domain value object
+impl Eq for SimilarityScore {}
+
+
+impl fmt::Display for SimilarityScore {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:.4}", self.0)
+    }
+}
+
+/// Supported embedding models
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EmbeddingModel {
+    /// all-MiniLM-L6-v2 model (384 dimensions)
+    AllMiniLML6V2,
+}
+
+impl EmbeddingModel {
+    pub fn dimension_count(&self) -> usize {
+        match self {
+            EmbeddingModel::AllMiniLML6V2 => 384,
+        }
+    }
+
+    pub fn model_name(&self) -> &'static str {
+        match self {
+            EmbeddingModel::AllMiniLML6V2 => "sentence-transformers/all-MiniLM-L6-v2",
+        }
+    }
+}
+
+impl Default for EmbeddingModel {
+    fn default() -> Self {
+        EmbeddingModel::AllMiniLML6V2
+    }
+}
+
+impl ValueObject for EmbeddingModel {}
+
+impl fmt::Display for EmbeddingModel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.model_name())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -462,5 +628,95 @@ mod tests {
         }
         assert_eq!(progress.files_processed(), 10);
         assert_eq!(progress.percentage(), 100.0);
+    }
+
+    #[test]
+    fn test_chunk_id_creation() {
+        let id = ChunkId::new("chunk-123").unwrap();
+        assert_eq!(id.as_str(), "chunk-123");
+
+        let empty_id = ChunkId::new("");
+        assert!(empty_id.is_err());
+    }
+
+    #[test]
+    fn test_chunk_id_from_block() {
+        let block_id = BlockId::new("block-456").unwrap();
+        let chunk_id = ChunkId::from_block(&block_id, 0);
+        assert_eq!(chunk_id.as_str(), "block-456-chunk-0");
+
+        let chunk_id2 = ChunkId::from_block(&block_id, 2);
+        assert_eq!(chunk_id2.as_str(), "block-456-chunk-2");
+    }
+
+    #[test]
+    fn test_embedding_vector_creation() {
+        let vec = vec![0.1, 0.2, 0.3];
+        let embedding = EmbeddingVector::new(vec.clone()).unwrap();
+        assert_eq!(embedding.dimensions(), &vec[..]);
+        assert_eq!(embedding.dimension_count(), 3);
+
+        let empty_vec: Vec<f32> = vec![];
+        let empty_embedding = EmbeddingVector::new(empty_vec);
+        assert!(empty_embedding.is_err());
+    }
+
+    #[test]
+    fn test_cosine_similarity() {
+        let vec1 = EmbeddingVector::new(vec![1.0, 0.0, 0.0]).unwrap();
+        let vec2 = EmbeddingVector::new(vec![1.0, 0.0, 0.0]).unwrap();
+        let similarity = vec1.cosine_similarity(&vec2).unwrap();
+        assert!((similarity - 1.0).abs() < 0.001);
+
+        let vec3 = EmbeddingVector::new(vec![0.0, 1.0, 0.0]).unwrap();
+        let similarity2 = vec1.cosine_similarity(&vec3).unwrap();
+        assert!((similarity2 - 0.0).abs() < 0.001);
+
+        let vec4 = EmbeddingVector::new(vec![-1.0, 0.0, 0.0]).unwrap();
+        let similarity3 = vec1.cosine_similarity(&vec4).unwrap();
+        assert!((similarity3 + 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_cosine_similarity_different_dimensions() {
+        let vec1 = EmbeddingVector::new(vec![1.0, 0.0]).unwrap();
+        let vec2 = EmbeddingVector::new(vec![1.0, 0.0, 0.0]).unwrap();
+        let result = vec1.cosine_similarity(&vec2);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_similarity_score() {
+        let score = SimilarityScore::new(0.5).unwrap();
+        assert_eq!(score.value(), 0.5);
+
+        let invalid_score = SimilarityScore::new(1.5);
+        assert!(invalid_score.is_err());
+
+        let invalid_score2 = SimilarityScore::new(-0.1);
+        assert!(invalid_score2.is_err());
+    }
+
+    #[test]
+    fn test_similarity_score_from_cosine() {
+        // Cosine of 1.0 should map to 1.0
+        let score = SimilarityScore::from_cosine_similarity(1.0).unwrap();
+        assert!((score.value() - 1.0).abs() < 0.001);
+
+        // Cosine of 0.0 should map to 0.5
+        let score2 = SimilarityScore::from_cosine_similarity(0.0).unwrap();
+        assert!((score2.value() - 0.5).abs() < 0.001);
+
+        // Cosine of -1.0 should map to 0.0
+        let score3 = SimilarityScore::from_cosine_similarity(-1.0).unwrap();
+        assert!((score3.value() - 0.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_embedding_model() {
+        let model = EmbeddingModel::default();
+        assert_eq!(model, EmbeddingModel::AllMiniLML6V2);
+        assert_eq!(model.dimension_count(), 384);
+        assert_eq!(model.model_name(), "sentence-transformers/all-MiniLM-L6-v2");
     }
 }
