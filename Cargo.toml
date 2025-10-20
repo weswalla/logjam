@@ -58,5 +58,8 @@ regex = "1.10"
 # Date/time handling
 chrono = { version = "0.4", features = ["serde"] }
 
+# SQLite persistence
+rusqlite = { version = "0.32", features = ["bundled", "serde_json"] }
+
 [dev-dependencies]
 tempfile = "3.14"
