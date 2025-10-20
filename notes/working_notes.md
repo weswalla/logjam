@@ -1,3 +1,24 @@
+# 2025.10.19
+
+- fill in some left over gaps (sql infra implementation, tantivy, tauri, file deletion)
+- url parsing and indexing plan
+- e2e tests
+  - highest impact
+    - adding logseq directory, performing queries, and handling file system events
+    - is this actually e2e test? maybe we can avoid ui and tauri things? or start the test at the tauri headless level?
+- plan for handling block ids and making sure we aren't creating duplicates and redundant blocks
+- how we will handle vector DB relationship to page and block persistence - how is that handled in the use cases
+  - want to check how this is currently handled - look for that use case
+- wire everything up in a "composite root" which is the tauri layer - where they layers "meet" and can run e2e tests as described above
+  - with the overview workflow docs - make sure we understand how this will all come together in tauri (presentation layer?)
+- audit the file processing parallelism - especially for the import to make sure that it can run in the background while the app is still interactive while receiving updates
+- review OVERVIEW doc - e.g. in continuous sync I see that it filters only for the `journals` subdir but not `pages`?
+- base e2e test design around the overview to test these main workflows with all the real implementations (not in mem)
+- also want to make sure I can use in mem and fake implementations of various interfaces for quick testing but also codebase modularity and maintainability reasons
+- audit how blocks are handled in search results (want results to be blocks ideally, with page references (page is on and any parent pages, for example)
+- ask what is missing from this overview - how can I create an implementation plan then a deployment plan (building the app with github workflow etc.)
+- also would be nice to start thinking about any query params for blocks, like character length and whatnot (some more notes and ideas about this in logseq) but basically if I know some blocks are longer than others, would be nice to tune this.
+
 # 2025.10.18
 
 - logseq page URLs: `logseq://graph/logseq-notes?page=notes`
@@ -55,19 +76,22 @@
 ## Implementation Summary & Alignment (2025.10.18)
 
 ### Technology Stack Confirmed
+
 - **notify** for file system event monitoring
 - **SQLite** (via tauri-plugin-sql) for persistence
 - **tantivy** for text search (when implementing search)
 - Semantic search (fastembed-rs + qdrant) deferred to later
 
 ### Current Focus Scope
+
 1. File event handling with notify crate
 2. ImportLogseqDirectory UseCase
-3. LogseqDirectorySync UseCase  
+3. LogseqDirectorySync UseCase
 4. Basic SQLite persistence
 5. Good test coverage
 
 ### Architecture Approach
+
 - Simplified DDD (not over-engineered for personal project)
 - Clear separation of domain/application/infrastructure layers
 - Direct callbacks from file watcher to sync service (no complex event bus)
@@ -75,12 +99,14 @@
 - Simple debouncing for file changes
 
 ### Implementation Path
+
 1. **Domain Layer:** Use existing Page/Block entities, add any needed value objects
 2. **Application Layer:** ImportLogseqDirectory and LogseqDirectorySync use cases
 3. **Infrastructure Layer:** File watching (notify), persistence (SQLite), file I/O
 4. **Testing:** Unit tests for domain logic, integration tests with real files
 
 ### Key Decisions
+
 - Feature markdown files provide good simplified foundation
 - Direct callback approach from file watcher to sync service
 - SQLite perfect for personal project persistence needs
