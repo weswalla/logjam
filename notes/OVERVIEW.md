@@ -574,6 +574,8 @@ pub async fn import_directory(
 │       ├─ LogseqMarkdownParser::parse_file(path)                  │
 │       ├─ page_repository.save(page)                              │
 │       ├─ mapping_repository.save(mapping)                        │
+│       ├─ tantivy_index.index_page(page)          [KEYWORD]       │
+│       ├─ embed_blocks.execute(page.blocks())      [SEMANTIC]     │
 │       └─ emit progress event                                     │
 │    3. Return ImportSummary                                       │
 └───────────────────────────┬──────────────────────────────────────┘
@@ -599,9 +601,15 @@ pub async fn import_directory(
 │    • SqliteFileMappingRepository::save()                         │
 │      └─ INSERT file_page_mappings                                │
 │                                                                   │
-│  Search Index (infrastructure/search/tantivy_index.rs):          │
+│  Keyword Search Index (infrastructure/search/tantivy_index.rs):  │
 │    • TantivySearchIndex::index_page()                            │
-│      └─ Add page doc + block docs to search index                │
+│      └─ Add page doc + block docs to inverted index              │
+│                                                                   │
+│  Semantic Search (infrastructure/embeddings/):                   │
+│    • EmbedBlocks::execute()                                      │
+│      ├─ TextPreprocessor: Remove [[links]], #tags, add context   │
+│      ├─ FastEmbedService: Generate embeddings (batch of 32)      │
+│      └─ QdrantVectorStore: Store vectors in HNSW index           │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -634,7 +642,20 @@ impl ImportService {
 
         for file in files {
             let page = LogseqMarkdownParser::parse_file(&file).await?;
-            self.repository.save(page)?;
+
+            // Save to database
+            self.page_repository.save(page.clone())?;
+
+            // Index for keyword search
+            if let Some(ref tantivy_index) = self.tantivy_index {
+                tantivy_index.lock().await.index_page(&page)?;
+            }
+
+            // Generate embeddings for semantic search
+            if let Some(ref embed_blocks) = self.embed_blocks {
+                embed_blocks.execute(page.all_blocks().collect(), &page).await?;
+            }
+
             // ... emit progress
         }
 
@@ -663,26 +684,30 @@ impl PageRepository for SqlitePageRepository {
 **Data Transformations:**
 
 ```
-File System                    Domain                 Database
-────────────                  ────────               ────────
+File System           Domain              Database            Vector Store
+────────────          ────────            ────────            ────────────
 
-/pages/my-note.md             Page {                 pages:
-  - Line 1                      id: "my-note"          id: "my-note"
-  - Line 2                      title: "my-note"       title: "my-note"
-    - Nested                    blocks: [
-                                  Block {             blocks:
-                                    content: "Line 1"   id: "block-1"
-                                    indent: 0           page_id: "my-note"
-                                  },                    content: "Line 1"
-                                  Block {               indent_level: 0
-                                    content: "Nested"
-                                    indent: 1         blocks:
-                                  }                     id: "block-2"
-                                ]                       page_id: "my-note"
-                              }                         content: "Nested"
-                                                        parent_id: "block-1"
-                                                        indent_level: 1
+/pages/my-note.md     Page {              pages:              Qdrant Collection:
+  - Line 1              id: "my-note"       id: "my-note"       "logseq_blocks"
+  - Line 2              title: "my-note"    title: "my-note"
+    - Nested            blocks: [                               Point 1:
+                          Block {          blocks:                chunk_id: "block-1-chunk-0"
+                            id: "block-1"    id: "block-1"        vector: [0.12, -0.45, 0.89, ...]
+                            content: "..."   page_id: "my-note"   payload: {
+                            indent: 0        content: "Line 1"      original: "Line 1"
+                          },                 indent_level: 0      preprocessed: "Page: my-note. Line 1"
+                          Block {                                }
+                            id: "block-2"  blocks:
+                            content: "..."   id: "block-2"      Point 2:
+                            indent: 1        page_id: "my-note"   chunk_id: "block-2-chunk-0"
+                          }                  content: "Nested"    vector: [0.34, 0.21, -0.67, ...]
+                        ]                    parent_id: "block-1" payload: {
+                      }                      indent_level: 1      original: "Nested"
+                                                                  preprocessed: "Page: my-note. Nested"
+                                                                }
 ```
+
+**Note:** Embedding generation is optional and can be configured. If disabled, only keyword search (Tantivy) will be available.
 
 ### Workflow 2: Continuous Sync (File Watching)
 
