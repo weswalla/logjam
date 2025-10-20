@@ -17,6 +17,7 @@
 - also want to make sure I can use in mem and fake implementations of various interfaces for quick testing but also codebase modularity and maintainability reasons
 - audit how blocks are handled in search results (want results to be blocks ideally, with page references (page is on and any parent pages, for example)
 - ask what is missing from this overview - how can I create an implementation plan then a deployment plan (building the app with github workflow etc.)
+- also would be nice to start thinking about any query params for blocks, like character length and whatnot (some more notes and ideas about this in logseq) but basically if I know some blocks are longer than others, would be nice to tune this.
 
 # 2025.10.18
 
