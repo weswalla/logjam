@@ -2244,8 +2244,9 @@ This architecture provides:
 
 ## Quick Navigation
 
-- **For new developers:** Start with "High-Level Architecture" → "DDD Building Blocks" → Pick a workflow
+- **For new developers:** Start with "High-Level Architecture" → "DDD Building Blocks" → Pick a workflow from [End-to-End Workflows](#end-to-end-workflows)
 - **For implementation:** Read relevant feature plan → Check "Code Patterns" → Find files in "Quick Reference"
-- **For understanding data flow:** Follow "Workflow 1" (Import) end-to-end with diagrams
-- **For search features:** See "Workflow 3" (Keyword) + "Workflow 4" (Semantic) + Hybrid Search section
+- **For understanding data flow:** Follow [Workflow 1: Initial Import](workflows/workflow-1-initial-import.md) end-to-end with diagrams
+- **For search features:** See [Workflow 3: Full-Text Search](workflows/workflow-3-fulltext-search.md) + [Workflow 4: Semantic Search](workflows/workflow-4-semantic-search.md)
+- **For file watching:** See [Workflow 2: Continuous Sync](workflows/workflow-2-continuous-sync.md)
 - **For debugging:** Use layer boundaries to isolate issues, check error conversion chain
