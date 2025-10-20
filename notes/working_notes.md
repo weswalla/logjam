@@ -10,9 +10,13 @@
 - how we will handle vector DB relationship to page and block persistence - how is that handled in the use cases
   - want to check how this is currently handled - look for that use case
 - wire everything up in a "composite root" which is the tauri layer - where they layers "meet" and can run e2e tests as described above
+  - with the overview workflow docs - make sure we understand how this will all come together in tauri (presentation layer?)
 - audit the file processing parallelism - especially for the import to make sure that it can run in the background while the app is still interactive while receiving updates
 - review OVERVIEW doc - e.g. in continuous sync I see that it filters only for the `journals` subdir but not `pages`?
 - base e2e test design around the overview to test these main workflows with all the real implementations (not in mem)
+- also want to make sure I can use in mem and fake implementations of various interfaces for quick testing but also codebase modularity and maintainability reasons
+- audit how blocks are handled in search results (want results to be blocks ideally, with page references (page is on and any parent pages, for example)
+- ask what is missing from this overview - how can I create an implementation plan then a deployment plan (building the app with github workflow etc.)
 
 # 2025.10.18
 
